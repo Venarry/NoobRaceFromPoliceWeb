@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>NoobRaceFromPolice</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+</head>
+<body class="dark">
+    <div id="unity-container" class="unity-desktop">
+        <canvas id="unity-canvas"></canvas>
+    </div>
+    <div id="loading-cover" style="display:none;">
+        <div id="unity-loading-bar">
+            <div id="unity-logo"><img src="logo.png"></div>
+            <div id="unity-progress-bar-empty" style="display: none;">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+            <div class="spinner"></div>
+        </div>
+    </div>
+    <script>
+      const hideFullScreenButton = "";
+      const buildUrl = "Build";
+      const loaderUrl = buildUrl + "/aaa20372f812ee85999aa60293b632c7.js";
+      const config = {
+        dataUrl: buildUrl + "/b87cd55ff216d3815d51bb8164013df2.data.unityweb",
+        frameworkUrl: buildUrl + "/7cd7da59377e747a2e34b2deb51d5aca.js.unityweb",
+        codeUrl: buildUrl + "/9620ff95f56dc7db0be1b7d9d49948f6.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Venarry",
+        productName: "NoobRaceFromPolice",
+        productVersion: "0.1",
+      };
+
+      const container = document.querySelector("#unity-container");
+      const canvas = document.querySelector("#unity-canvas");
+      const loadingCover = document.querySelector("#loading-cover");
+      const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+      const progressBarFull = document.querySelector("#unity-progress-bar-full");
+      const fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      const spinner = document.querySelector('.spinner');
+
+      const canFullscreen = (function() {
+        for (const key of [
+            'exitFullscreen',
+            'webkitExitFullscreen',
+            'webkitCancelFullScreen',
+            'mozCancelFullScreen',
+            'msExitFullscreen',
+          ]) {
+          if (key in document) {
+            return true;
+          }
+        }
+        return false;
+      }());
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        container.className = "unity-mobile";
+        //config.devicePixelRatio = 1;
+      }
+      loadingCover.style.display = "";
+
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        var unityI = null;
+        script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+                spinner.style.display = "none";
+                progressBarEmpty.style.display = "";
+                progressBarFull.style.width = `${100 * progress}%`;
+            }).then((unityInstance) => {
+                unityI = unityInstance;
+                loadingCover.style.display = "none";
+                if (canFullscreen) {
+
+                }
+            }).catch((message) => {
+                alert(message);
+            });
+        };
+        document.body.appendChild(script);
+    </script>
+    <script src="https://yandex.ru/games/sdk/v2"></script>
+    <script>
+        var player;
+        var sdk;
+        var payments = null;
+        var isAuth = false;
+
+        YaGames.init({
+            adv: {
+                onAdvClose: wasShown => {
+                    console.info('adv closed!');
+                }
+            }
+        })
+            .then(ysdk => {
+                sdk = ysdk;
+                sdk.adv.showFullscreenAdv({ callbacks: {} });
+            });
+
+        var lb;
+
+        function GetLeaderBoard() {
+            sdk.getLeaderboards().then(_lb => lb = _lb);
+        }
+
+        function SetLeaderBoard(score) {
+            sdk.getLeaderboards()
+                .then(lb => {
+                    console.log(score);
+                    lb.setLeaderboardScore('LeaderBoard', score);
+                });
+        }
+
+        function GetLeaderBoardEntries() {
+            sdk.getLeaderboards()
+                .then(lb => {
+                    lb.getLeaderboardEntries('LeaderBoard', { quantityTop: 10, includeUser: true, quantityAround: 3 }).then(res => {
+                        console.log(res);
+                        unityI.SendMessage('YandexSDK', 'BoardEntriesReady', JSON.stringify(res));
+                    });
+                });
+        }
+
+        function auth() {
+            console.log("sdkTld:");
+            console.log(sdk.environment.i18n.tld);
+            GetLang();
+            initPlayer().then(() => {
+                getUser();
+                isAuth = true;
+                console.log(isAuth);
+            }).catch(err => {
+            });
+        }
+
+        function GetLang() {
+            console.log('try to get Language');
+            var lang = sdk.environment.i18n.tld;
+            unityI.SendMessage('YandexSDK', 'Language', lang);
+            console.log('Language SDK Getting');
+        }
+
+        function initPlayer() {
+            console.log('InitPlayerTry')
+            return sdk.getPlayer().then(_player => {
+                console.log('InitPlayer2');
+                player = _player;
+                playerAuth = true;
+            });
+        }
+
+        function getUser() {
+            console.log('try to get Name');
+            var data = player.getName();
+            unityI.SendMessage('YandexSDK', 'AuthenticateSuccess', data);
+            console.log('getName done');
+        }
+
+        function getUserData() {
+            player.getData().then(stats => {
+                console.log('Data is getting');
+                console.log(JSON.stringify(stats));
+                if (JSON.stringify(stats) != "{}") {
+                    unityI.SendMessage('YandexSDK', 'DataGetting', JSON.stringify(stats));
+                }
+                else console.log("DataIsNotHave");
+            });
+        }
+
+        function setUserData(_data) {
+            console.log('Try Save');
+            console.log(_data);
+            if (isAuth == true) {
+                player.setData({ data: _data }).then(() => {
+                    console.log('saved');
+                }).catch(() => { console.log('unsaved') });
+            }
+        }
+
+        function showFullscrenAd() {
+            sdk.adv.showFullscreenAdv({
+                callbacks: {
+                    onClose: function (wasShown) { },
+                    onError: function (error) { }
+                }
+            })
+        }
+
+        function showRewardedAd(id) {
+            sdk.adv.showRewardedVideo({
+                callbacks: {
+                    onOpen: () => { },
+                    onRewarded: () => {
+                        unityI.SendMessage('YandexSDK', 'RewardGetting');
+                        console.log('Rewarded! Id: ' + id);
+                    },
+                    onClose: () => { },
+                    onError: (e) => {
+                        var data = { "id": id, "error": error };
+                        console.log('Error while open video ad:', e);
+                    }
+                }
+            })
+        }
+    </script>
+</body>
+</html>
