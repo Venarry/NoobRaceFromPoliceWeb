@@ -26,9 +26,9 @@
       const buildUrl = "Build";
       const loaderUrl = buildUrl + "/aaa20372f812ee85999aa60293b632c7.js";
       const config = {
-        dataUrl: buildUrl + "/b87cd55ff216d3815d51bb8164013df2.data.unityweb",
-        frameworkUrl: buildUrl + "/7cd7da59377e747a2e34b2deb51d5aca.js.unityweb",
-        codeUrl: buildUrl + "/9620ff95f56dc7db0be1b7d9d49948f6.wasm.unityweb",
+        dataUrl: buildUrl + "/800015cc2f22ccd320894dd7a81d8029.data.unityweb",
+        frameworkUrl: buildUrl + "/6553b61999e87540a99018b6129d8fa0.js.unityweb",
+        codeUrl: buildUrl + "/b3c7f100fe81d00b82033a0df9746b14.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Venarry",
         productName: "NoobRaceFromPolice",
@@ -75,139 +75,61 @@
             }).then((unityInstance) => {
                 unityI = unityInstance;
                 loadingCover.style.display = "none";
-                if (canFullscreen) {
-
-                }
             }).catch((message) => {
                 alert(message);
             });
         };
         document.body.appendChild(script);
     </script>
-    <script src="https://yandex.ru/games/sdk/v2"></script>
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
     <script>
-        var player;
-        var sdk;
-        var payments = null;
-        var isAuth = false;
 
-        YaGames.init({
-            adv: {
-                onAdvClose: wasShown => {
-                    console.info('adv closed!');
-                }
-            }
-        })
-            .then(ysdk => {
-                sdk = ysdk;
-                sdk.adv.showFullscreenAdv({ callbacks: {} });
-            });
+        vkBridge.send("VKWebAppInit", {});
 
-        var lb;
-
-        function GetLeaderBoard() {
-            sdk.getLeaderboards().then(_lb => lb = _lb);
-        }
-
-        function SetLeaderBoard(score) {
-            sdk.getLeaderboards()
-                .then(lb => {
-                    console.log(score);
-                    lb.setLeaderboardScore('LeaderBoard', score);
-                });
-        }
-
-        function GetLeaderBoardEntries() {
-            sdk.getLeaderboards()
-                .then(lb => {
-                    lb.getLeaderboardEntries('LeaderBoard', { quantityTop: 10, includeUser: true, quantityAround: 3 }).then(res => {
-                        console.log(res);
-                        unityI.SendMessage('YandexSDK', 'BoardEntriesReady', JSON.stringify(res));
-                    });
-                });
-        }
-
-        function auth() {
-            console.log("sdkTld:");
-            console.log(sdk.environment.i18n.tld);
-            GetLang();
-            initPlayer().then(() => {
-                getUser();
-                isAuth = true;
-                console.log(isAuth);
-            }).catch(err => {
-            });
-        }
-
-        function GetLang() {
-            console.log('try to get Language');
-            var lang = sdk.environment.i18n.tld;
-            unityI.SendMessage('YandexSDK', 'Language', lang);
-            console.log('Language SDK Getting');
-        }
-
-        function initPlayer() {
-            console.log('InitPlayerTry')
-            return sdk.getPlayer().then(_player => {
-                console.log('InitPlayer2');
-                player = _player;
-                playerAuth = true;
-            });
-        }
-
-        function getUser() {
-            console.log('try to get Name');
-            var data = player.getName();
-            unityI.SendMessage('YandexSDK', 'AuthenticateSuccess', data);
-            console.log('getName done');
-        }
-
-        function getUserData() {
-            player.getData().then(stats => {
-                console.log('Data is getting');
-                console.log(JSON.stringify(stats));
-                if (JSON.stringify(stats) != "{}") {
-                    unityI.SendMessage('YandexSDK', 'DataGetting', JSON.stringify(stats));
-                }
-                else console.log("DataIsNotHave");
-            });
-        }
-
-        function setUserData(_data) {
-            console.log('Try Save');
-            console.log(_data);
-            if (isAuth == true) {
-                player.setData({ data: _data }).then(() => {
-                    console.log('saved');
-                }).catch(() => { console.log('unsaved') });
-            }
-        }
-
-        function showFullscrenAd() {
-            sdk.adv.showFullscreenAdv({
-                callbacks: {
-                    onClose: function (wasShown) { },
-                    onError: function (error) { }
-                }
+        function vkAuthentication() {
+            vkBridge.send("VKWebAppGetUserInfo").then(info => {
+                console.log(info);
+                unityI.SendMessage("VkSDK", "AuthenticateSuccess", JSON.stringify(info));
             })
         }
 
-        function showRewardedAd(id) {
-            sdk.adv.showRewardedVideo({
-                callbacks: {
-                    onOpen: () => { },
-                    onRewarded: () => {
-                        unityI.SendMessage('YandexSDK', 'RewardGetting');
-                        console.log('Rewarded! Id: ' + id);
-                    },
-                    onClose: () => { },
-                    onError: (e) => {
-                        var data = { "id": id, "error": error };
-                        console.log('Error while open video ad:', e);
-                    }
-                }
-            })
+        function vkshowCommonADV() {
+            vkBridge.send("VKWebAppShowNativeAds", { ad_format: "interstitial" }).then((data) => {
+                    if (data.result)
+                        console.log("Реклама показана");
+                    else
+                        console.log("Ошибка при показе");
+            }).catch((error) => {
+                console.log(error);
+            });
         }
+
+        function vkGetData() {
+            vkBridge.send("VKWebAppStorageGet", {
+                keys: ["save"]
+            }).then((data) => {
+                unityI.SendMessage("VkSDK", "DataGetted", JSON.stringify(data));
+                console.log("HTML data get: " + data);
+            }).catch((error) => {
+                console.log(error);
+            });
+        }
+
+        function vkSetData(data) {
+            console.log('HTML try save: ' + data);
+            vkBridge.send('VKWebAppStorageSet', {
+                key: "save",
+                value: data
+            }).then((data) => {
+                if (data.result)
+                    console.log("HTML saved: " + data);
+            })
+                .catch((error) => {
+                    console.log(error);
+                });
+        }
+
     </script>
 </body>
 </html>
+
